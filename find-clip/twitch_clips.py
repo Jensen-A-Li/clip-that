@@ -3,7 +3,12 @@ import requests
 from requests.exceptions import HTTPError
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
-from pprint import pprint
+from pathlib import Path
+import yaml
+import pprint
+
+ROOT = Path(__file__).resolve().parents[1]
+CREATORS_FILE = ROOT / "config" / "creators.yaml"
 
 # Remove later (move to run.py or config.py)
 load_dotenv()
@@ -113,11 +118,32 @@ def get_clips(token, broadcaster_id, hours=24):
 
     return clips
 
+def load_creators():
+    with open(CREATORS_FILE, "r", encoding="utf-8") as file:
+        data = yaml.safe_load(file)
+    creators_list = data["creators"]
+    active_creators = [c for c in creators_list if c["active"]]
+    return active_creators
+
 if __name__ == "__main__":
     token = get_token()
-    broadcaster_id = get_user_id(token, "kaicenat")
-    clips = get_clips(token, broadcaster_id)
-    for c in clips:
-        print(f'{c["view_count"]:>20} views | {c["duration"]:>4}s | {c["title"]} | {c["url"]}')
+    clips = {}
+    creators = load_creators()
+    for creator in creators:
+        try:
+            broadcaster_id = get_user_id(token, creator["twitch"])
+            clips[creator["twitch"]] = get_clips(token, broadcaster_id)
+        except (requests.exceptions.RequestException, ValueError) as err:
+            print(f"Skipping {creator['name']}: {err}")
+        continue
 
-    
+    for name, creator_clips in clips.items():
+        print(f"\n=== {name} ({len(creator_clips)} clips) ===")
+
+        if not creator_clips:
+            print("  No clips")
+            continue
+
+        for c in creator_clips:
+            print(f'{c["view_count"]:>7} views | {c["duration"]:>4}s | {c["title"]}')
+            print(f'        {c["url"]}')
