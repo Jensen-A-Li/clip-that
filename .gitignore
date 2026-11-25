@@ -1,0 +1,12 @@
+# Virtual environment
+.venv/
+
+# Secrets
+.env
+
+# Video files, database, downloads
+data/
+
+# Python cache
+__pycache__/
+*.pyc
