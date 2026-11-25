@@ -1,2 +1,2 @@
-# clipthat
+# clip-that
 TODO
