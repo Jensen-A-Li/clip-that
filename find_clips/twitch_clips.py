@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import yaml
 import pprint
+from db import get_connection, init_db, save_clips
 
 ROOT = Path(__file__).resolve().parents[1]
 CREATORS_FILE = ROOT / "config" / "creators.yaml"
@@ -125,18 +126,31 @@ def load_creators():
     active_creators = [c for c in creators_list if c["active"]]
     return active_creators
 
+
 if __name__ == "__main__":
     token = get_token()
     clips = {}
     creators = load_creators()
+
+    conn = get_connection()
+    init_db(conn)
+
+    # get recent clips and save them
     for creator in creators:
         try:
             broadcaster_id = get_user_id(token, creator["twitch"])
-            clips[creator["twitch"]] = get_clips(token, broadcaster_id)
-        except (requests.exceptions.RequestException, ValueError) as err:
-            print(f"Skipping {creator['name']}: {err}")
-        continue
+            creator_clips = get_clips(token, broadcaster_id)
+            clips[creator["name"]] = creator_clips
 
+            # save clip details into db
+            new = save_clips(conn, creator["name"], creator_clips)
+            print(f"{creator['name']}: {len(creator_clips)} clips, {new} new")
+        except (requests.exceptions.RequestException, ValueError) as err:
+            print(f"Skipping {creator["name"]}: {err}")
+
+    conn.close()
+    
+    # show the clips
     for name, creator_clips in clips.items():
         print(f"\n=== {name} ({len(creator_clips)} clips) ===")
 
