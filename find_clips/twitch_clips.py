@@ -7,6 +7,8 @@ from pathlib import Path
 import yaml
 import pprint
 from db import get_connection, init_db, save_clips
+import yt_dlp
+from download import get_clips_to_download, download_clip, mark_clip, download_clips
 
 ROOT = Path(__file__).resolve().parents[1]
 CREATORS_FILE = ROOT / "config" / "creators.yaml"
@@ -30,7 +32,7 @@ def get_token():
     }
 
     try:
-        res = requests.post(url, data=params)
+        res = requests.post(url, data=params, timeout=10)
         res.raise_for_status()
     except HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
@@ -68,9 +70,9 @@ def get_user_id(token, login):
     if not data["data"]:
         raise ValueError(f"No Twitch user called {login}")
 
-    id = data["data"][0]["id"]
+    user_id = data["data"][0]["id"]
 
-    return id
+    return user_id
 
 def get_clips(token, broadcaster_id, hours=24):
     client_id = os.getenv("TWITCH_CLIENT_ID")
@@ -135,7 +137,7 @@ if __name__ == "__main__":
     conn = get_connection()
     init_db(conn)
 
-    # get recent clips and save them
+    # get recent clips and save them into db
     for creator in creators:
         try:
             broadcaster_id = get_user_id(token, creator["twitch"])
@@ -144,9 +146,12 @@ if __name__ == "__main__":
 
             # save clip details into db
             new = save_clips(conn, creator["name"], creator_clips)
-            print(f"{creator['name']}: {len(creator_clips)} clips, {new} new")
+            print(f"{creator["name"]}: {len(creator_clips)} clips, {new} new")
         except (requests.exceptions.RequestException, ValueError) as err:
             print(f"Skipping {creator["name"]}: {err}")
+
+    # lookup clips in db and download them
+    download_clips(conn)
 
     conn.close()
     

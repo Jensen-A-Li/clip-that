@@ -23,7 +23,9 @@ def init_db(conn):
             url         TEXT,
             created_at  TEXT,
             first_seen  TEXT,
-            last_seen   TEXT
+            last_seen   TEXT,
+            status      TEXT DEFAULT 'new',
+            file_path   TEXT
         )
     """
 
